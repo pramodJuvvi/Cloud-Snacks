@@ -1,0 +1,137 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      role:
+        description: 'Build role (customer or admin or both)'
+        required: true
+        default: 'both'
+
+jobs:
+  build:
+    name: Build CloudSnacks APK
+    # ubuntu-22.04 — NOT 24.04 — libncurses5 missing on 24.04
+    runs-on: ubuntu-22.04
+
+    steps:
+
+    # ── 1. Checkout ──────────────────────────────────────────────────────────
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # ── 2. Python 3.11.9 — exact patch pinned to match p4a hostpython3 ──────
+    - name: Set up Python 3.11.9
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11.9'
+
+    # ── 3. System dependencies ───────────────────────────────────────────────
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          git zip unzip \
+          openjdk-17-jdk \
+          autoconf libtool \
+          pkg-config \
+          zlib1g-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libffi-dev \
+          libssl-dev \
+          cmake \
+          build-essential \
+          ccache \
+          lld
+
+    # ── 4. JAVA_HOME ─────────────────────────────────────────────────────────
+    - name: Set JAVA_HOME
+      run: |
+        echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+        echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+
+    # ── 5. Python dependencies ───────────────────────────────────────────────
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install \
+          buildozer==1.5.0 \
+          cython==3.0.11 \
+          kivy==2.3.1 \
+          kivymd==1.2.0 \
+          pillow
+
+    # ── 6. Cache buildozer downloads ─────────────────────────────────────────
+    - name: Cache buildozer global directory
+      uses: actions/cache@v4
+      with:
+        path: ~/.buildozer
+        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          buildozer-${{ runner.os }}-
+
+    # ── 7. CUSTOMER APK ───────────────────────────────────────────────────────
+    - name: Set role to CUSTOMER
+      run: |
+        sed -i 's/"role": "admin"/"role": "customer"/g' utils/data.py
+        echo "--- role check ---"
+        grep '"role"' utils/data.py
+
+    - name: Build Customer APK
+      run: |
+        buildozer -v android debug 2>&1 | tee build_customer.log
+      timeout-minutes: 60
+
+    - name: Rename Customer APK
+      run: |
+        mkdir -p release
+        cp bin/*.apk release/CloudSnacks-CUSTOMER-v1.1.0.apk
+        echo "Customer APK ready"
+        ls -lh release/
+
+    # ── 8. ADMIN APK ──────────────────────────────────────────────────────────
+    - name: Set role to ADMIN
+      run: |
+        sed -i 's/"role": "customer"/"role": "admin"/g' utils/data.py
+        echo "--- role check ---"
+        grep '"role"' utils/data.py
+
+    - name: Build Admin APK
+      run: |
+        buildozer -v android debug 2>&1 | tee build_admin.log
+      timeout-minutes: 60
+
+    - name: Rename Admin APK
+      run: |
+        cp bin/*.apk release/CloudSnacks-ADMIN-v1.1.0.apk
+        echo "Admin APK ready"
+        ls -lh release/
+
+    # ── 9. Upload APKs ────────────────────────────────────────────────────────
+    - name: Upload Customer APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: CloudSnacks-CUSTOMER-APK
+        path: release/CloudSnacks-CUSTOMER-v1.1.0.apk
+        retention-days: 30
+
+    - name: Upload Admin APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: CloudSnacks-ADMIN-APK
+        path: release/CloudSnacks-ADMIN-v1.1.0.apk
+        retention-days: 30
+
+    # ── 10. Upload logs on failure ────────────────────────────────────────────
+    - name: Upload build logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          build_customer.log
+          build_admin.log
+        retention-days: 7
