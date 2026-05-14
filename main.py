@@ -5,9 +5,11 @@
 
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
-from kivymd.uix.boxlayout import MDBoxLayout
+from kivy.uix.boxlayout import BoxLayout        # plain, no md_bg_color
 from kivy.core.window import Window
 from kivy.metrics import dp
+
+from screens.widgets import ColorBox             # safe coloured container
 
 from screens.login_screen   import LoginScreen
 from screens.home_screen    import HomeScreen
@@ -44,7 +46,8 @@ class CloudSnacksApp(MDApp):
         self.theme_cls.theme_style     = "Light"
         self.title = "Cloud Snacks"
 
-        root = MDBoxLayout(orientation="vertical")
+        # Plain BoxLayout as root — no md_bg_color needed here
+        root = BoxLayout(orientation="vertical")
 
         self.sm = MDScreenManager()
         self.sm.add_widget(LoginScreen())
@@ -67,14 +70,15 @@ class CloudSnacksApp(MDApp):
         return root
 
     def _build_nav(self):
-        nav = MDBoxLayout(
+        # ColorBox instead of MDBoxLayout(md_bg_color=...)
+        nav = ColorBox(
+            color=(1, 1, 1, 1),
             orientation="horizontal",
             size_hint_y=None, height=dp(60),
-            md_bg_color=(1, 1, 1, 1),
         )
         for icon, label, target in TABS:
             is_active = self.sm.current == target
-            col = MDBoxLayout(orientation="vertical", spacing=0, padding=[0, dp(4)])
+            col = BoxLayout(orientation="vertical", spacing=0, padding=[0, dp(4)])
             from kivymd.uix.label import MDLabel
             col.add_widget(MDLabel(
                 text=icon, font_size="22sp", halign="center",
@@ -96,16 +100,15 @@ class CloudSnacksApp(MDApp):
             self.sm.current = target
 
     def on_screen_change(self, instance, value):
-        hide = value in HIDE_NAV or not self.sm.get_screen("login") or value == "login"
+        hide = value in HIDE_NAV or value == "login"
         self.nav.height   = 0     if hide else dp(60)
         self.nav.opacity  = 0     if hide else 1
         self.nav.disabled = hide
-        # Rebuild nav to refresh active tab
         self.nav.clear_widgets()
         if not hide:
             for icon, label, target in TABS:
                 is_active = value == target
-                col = MDBoxLayout(orientation="vertical", spacing=0, padding=[0, dp(4)])
+                col = BoxLayout(orientation="vertical", spacing=0, padding=[0, dp(4)])
                 from kivymd.uix.label import MDLabel
                 col.add_widget(MDLabel(
                     text=icon, font_size="22sp", halign="center",
