@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Cloud Snacks",
+    "slug": "cloudsnacks-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/branding/cloudsnacks-logo-1024.png",
+    "userInterfaceStyle": "light",
+    "scheme": "cloudsnacks",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cloudsnacks.mobile"
+    },
+    "android": {
+      "package": "com.cloudsnacks.mobile",
+      "usesCleartextTraffic": true,
+      "icon": "./assets/branding/cloudsnacks-logo-1024.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/branding/cloudsnacks-adaptive-foreground.png",
+        "backgroundColor": "#fff1da"
+      }
+    },
+    "splash": {
+      "image": "./assets/branding/cloudsnacks-splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#fff8f1"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/branding/cloudsnacks-logo-1024.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Cloud Snacks to listen for customer voice commands.",
+          "speechRecognitionPermission": "Allow Cloud Snacks to understand customer voice commands.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}

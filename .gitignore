@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+backend/venv/
+backend/.env
+backend/*.log
+backend/*.db
+backend/mobile-app/
+
+# Node / Expo
+mobile-app/node_modules/
+mobile-app/.expo/
+mobile-app/android/.gradle/
+mobile-app/android/build/
+mobile-app/android/app/build/
+mobile-app/android/app/.cxx/
+
+# Build outputs
+*.apk
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

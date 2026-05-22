@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: cloudsnacks-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: OTP_PRIMARY_CHANNEL
+        value: whatsapp
+      - key: OTP_FALLBACK_CHANNEL
+        value: sms
+      - key: OTP_ALLOW_DEV_FALLBACK
+        value: "true"
+      - key: WHATSAPP_PROVIDER
+        sync: false
+      - key: WHATSAPP_WEBHOOK_URL
+        sync: false
+      - key: WHATSAPP_WEBHOOK_TOKEN
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_TEMPLATE_NAME
+        value: cloud_snacks_otp
+      - key: WHATSAPP_TEMPLATE_LANGUAGE
+        value: en_US
+      - key: SMS_PROVIDER
+        value: fast2sms
+      - key: FAST2SMS_API_KEY
+        sync: false
+      - key: KITCHEN_ORIGIN_LABEL
+        value: Vandanapuri Colony, Beeramguda, Hyderabad

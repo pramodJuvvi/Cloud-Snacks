@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+venv/
+tests/
+*.log
+*.db
+mobile-app/
