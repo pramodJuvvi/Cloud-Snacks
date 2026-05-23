@@ -16,22 +16,57 @@ type VoiceAssistantProps = {
 };
 
 const comboCommands = [
-  { name: "Hyderabadi meal", terms: ["hyderabadi meal", "bagara combo"], items: ["Bagara Rice", "Chicken Curry"] },
-  { name: "South breakfast", terms: ["south breakfast", "idli coffee"], items: ["Mini Idli Podi Box", "Filter Coffee Shot"] },
-  { name: "Chai snack", terms: ["chai snack", "tea snack"], items: ["Aloo Paratha Dippers", "Masala Chai Flask"] },
+  { name: "Hyderabadi meal", terms: ["hyderabadi meal", "bagara combo", "bagara chicken", "rice chicken"], items: ["Bagara Rice", "Chicken Curry"] },
+  { name: "South breakfast", terms: ["south breakfast", "idli coffee", "idly coffee", "tiffin coffee"], items: ["Mini Idli Podi Box", "Filter Coffee Shot"] },
+  { name: "Chai snack", terms: ["chai snack", "tea snack", "chai nashta"], items: ["Aloo Paratha Dippers", "Masala Chai Flask"] },
 ];
 
 function normalize(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const normalizedValue = value.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const replacements: [RegExp, string][] = [
+    [/\b(begara|baghara|bagada|bagarae|bagar|bhagara|bhagara rice)\b/g, "bagara"],
+    [/\b(chikan|chiken|chickan|chickin)\b/g, "chicken"],
+    [/\b(kari|carry|cari)\b/g, "curry"],
+    [/\b(dosae|dose|dhosai|dosai)\b/g, "dosa"],
+    [/\b(idly|idlee|idle)\b/g, "idli"],
+    [/\b(wada|vadaa)\b/g, "vada"],
+    [/\b(upi|you pee eye|youpi|upi payment)\b/g, "upi"],
+    [/\b(card|kart|court|cot)\b/g, "cart"],
+    [/\b(truck|trac|trak|trackking)\b/g, "track"],
+    [/\b(older|odar|ordar)\b/g, "order"],
+    [/\b(licence|licensee|fssai license)\b/g, "license"],
+    [/\b(adress|addresss)\b/g, "address"],
+    [/\b(setting|settings|configuration|configurations)\b/g, "preference"],
+    [/\b(pehle|first fifty|first 50|first fifty coupon)\b/g, "first50"],
+    [/\b(free ship|free shipping|free delivery coupon)\b/g, "freeship"],
+    [/\b(khaana|khana|food items|items)\b/g, "snack"],
+    [/\b(khana chahiye|chahiye|chahie|chaahiye)\b/g, "want"],
+    [/\b(dena|de do|dedo|dijiye|please give)\b/g, "add"],
+    [/\b(khol|kholo|open karo)\b/g, "open"],
+    [/\b(paise|payment mode)\b/g, "payment"],
+    [/\b(order laga do|order kardo|order kar do)\b/g, "place order"],
+  ];
+
+  return replacements
+    .reduce((command, [pattern, replacement]) => command.replace(pattern, replacement), normalizedValue)
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const numberWords: Record<string, number> = {
   one: 1,
+  ek: 1,
   two: 2,
+  do: 2,
   three: 3,
+  teen: 3,
   four: 4,
+  chaar: 4,
+  char: 4,
   five: 5,
+  panch: 5,
   six: 6,
+  che: 6,
 };
 
 function escapeRegExp(value: string) {
@@ -46,36 +81,95 @@ function toQuantity(value?: string) {
   return Number(value) || numberWords[value] || 1;
 }
 
+function levenshtein(left: string, right: string) {
+  const matrix = Array.from({ length: left.length + 1 }, (_, row) =>
+    Array.from({ length: right.length + 1 }, (_, column) => (row === 0 ? column : column === 0 ? row : 0)),
+  );
+
+  for (let row = 1; row <= left.length; row += 1) {
+    for (let column = 1; column <= right.length; column += 1) {
+      const cost = left[row - 1] === right[column - 1] ? 0 : 1;
+      matrix[row][column] = Math.min(
+        matrix[row - 1][column] + 1,
+        matrix[row][column - 1] + 1,
+        matrix[row - 1][column - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[left.length][right.length];
+}
+
+function wordMatches(commandWords: string[], expectedWord: string) {
+  if (expectedWord.length <= 2) {
+    return commandWords.includes(expectedWord);
+  }
+  return commandWords.some((word) => {
+    if (word === expectedWord || word.includes(expectedWord) || expectedWord.includes(word)) {
+      return true;
+    }
+    const allowedDistance = expectedWord.length > 6 ? 2 : 1;
+    return levenshtein(word, expectedWord) <= allowedDistance;
+  });
+}
+
+function phraseMatches(command: string, phrase: string) {
+  const normalizedPhrase = normalize(phrase);
+  if (command.includes(normalizedPhrase)) {
+    return true;
+  }
+  const commandWords = command.split(" ");
+  const phraseWords = normalizedPhrase.split(" ").filter((word) => word.length > 2);
+  return phraseWords.length > 0 && phraseWords.every((word) => wordMatches(commandWords, word));
+}
+
+function includesAny(command: string, phrases: string[]) {
+  return phrases.some((phrase) => phraseMatches(command, phrase));
+}
+
+const snackAliases: Record<string, string[]> = {
+  "Bagara Rice": ["bagara rice", "bagara", "begara rice", "baghara rice", "rice"],
+  "Chicken Curry": ["chicken curry", "chicken carry", "chicken gravy", "chicken", "curry"],
+  "Masala Dosa Roll": ["masala dosa", "dosa roll", "dosa"],
+  "Mini Idli Podi Box": ["idli", "mini idli", "idly", "podi idli"],
+  "Medu Vada Minis": ["medu vada", "vada", "wada"],
+  "Filter Coffee Shot": ["filter coffee", "coffee"],
+  "Masala Chai Flask": ["masala chai", "chai", "tea"],
+  "Aloo Paratha Dippers": ["aloo paratha", "paratha"],
+  "Paneer Tikka Skewers": ["paneer tikka", "paneer"],
+  "Chole Kulcha Pocket": ["chole kulcha", "chole", "kulcha"],
+  "Rajma Rice Bowl": ["rajma rice", "rajma"],
+  "Curd Rice Comfort Cup": ["curd rice", "curd rice cup"],
+};
+
+function aliasesForSnack(snack: Snack) {
+  return [snack.name, ...(snackAliases[snack.name] ?? [])];
+}
+
 function findSnack(command: string, snackCatalog: Snack[]): Snack | undefined {
   const normalizedCommand = normalize(command);
-  return snackCatalog.find((snack) => {
-    const snackName = normalize(snack.name);
-    const importantWords = snackName.split(" ").filter((word) => word.length > 2);
-    return (
-      normalizedCommand.includes(snackName) ||
-      importantWords.every((word) => normalizedCommand.includes(word))
-    );
-  });
+  return snackCatalog.find((snack) =>
+    aliasesForSnack(snack).some((alias) => phraseMatches(normalizedCommand, alias)),
+  );
 }
 
 function findMentionedSnacks(command: string, snackCatalog: Snack[]) {
   const normalizedCommand = normalize(command);
-  return snackCatalog.filter((snack) => {
-    const snackName = normalize(snack.name);
-    const importantWords = snackName.split(" ").filter((word) => word.length > 2);
-    return (
-      normalizedCommand.includes(snackName) ||
-      (importantWords.length > 1 && importantWords.every((word) => normalizedCommand.includes(word)))
-    );
-  });
+  return snackCatalog.filter((snack) =>
+    aliasesForSnack(snack).some((alias) => phraseMatches(normalizedCommand, alias)),
+  );
 }
 
 function quantityForSnack(command: string, snack: Snack) {
   const normalizedCommand = normalize(command);
-  const snackName = escapeRegExp(normalize(snack.name));
-  const amountPattern = "(\\d+|one|two|three|four|five|six)";
-  const beforeMatch = normalizedCommand.match(new RegExp(`${amountPattern}\\s+${snackName}`));
-  const afterMatch = normalizedCommand.match(new RegExp(`${snackName}\\s+${amountPattern}`));
+  const snackNames = aliasesForSnack(snack).map((alias) => escapeRegExp(normalize(alias)));
+  const amountPattern = `(\\d+|${Object.keys(numberWords).join("|")})`;
+  const beforeMatch = snackNames
+    .map((snackName) => normalizedCommand.match(new RegExp(`${amountPattern}\\s+${snackName}`)))
+    .find(Boolean);
+  const afterMatch = snackNames
+    .map((snackName) => normalizedCommand.match(new RegExp(`${snackName}\\s+${amountPattern}`)))
+    .find(Boolean);
   return Math.min(Math.max(toQuantity(beforeMatch?.[1] ?? afterMatch?.[1]), 1), 6);
 }
 
@@ -120,21 +214,38 @@ export function VoiceAssistant({ navigateTo }: VoiceAssistantProps) {
   const contextualStrings = useMemo(
     () => [
       "add chicken curry",
+      "add do chicken curry",
+      "two chicken curry",
+      "do chicken curry",
       "add bagara rice",
+      "ek bagara rice",
+      "do bagara rice",
+      "begara rice",
+      "baghara rice",
       "add Hyderabadi meal",
+      "bagara rice and chicken curry",
       "search dosa",
       "go to cart",
+      "open cart",
       "track order",
+      "delivery tracking",
+      "where is my order",
       "open account",
       "open addresses",
       "open preferences",
       "open license",
       "contact admin",
       "apply FIRST50",
+      "first fifty coupon",
+      "free shipping coupon",
       "set spicy",
+      "cash on delivery",
+      "upi payment",
       "schedule dinner",
       "place order",
       "clear cart",
+      "repeat order",
+      "live kitchen camera",
       ...snackCatalog.map((snack) => snack.name),
     ],
     [snackCatalog],
@@ -163,9 +274,7 @@ export function VoiceAssistant({ navigateTo }: VoiceAssistantProps) {
       speak(`Opening ${label}.`);
     };
 
-    const combo = comboCommands.find((nextCombo) =>
-      nextCombo.terms.some((term) => command.includes(term)),
-    );
+    const combo = comboCommands.find((nextCombo) => includesAny(command, nextCombo.terms));
     if (combo) {
       combo.items.forEach((itemName) => {
         const snack = snackCatalog.find((nextSnack) => nextSnack.name === itemName);
@@ -178,40 +287,40 @@ export function VoiceAssistant({ navigateTo }: VoiceAssistantProps) {
       return;
     }
 
-    if (command.includes("clear cart") || command.includes("empty cart")) {
+    if (includesAny(command, ["clear cart", "empty cart", "remove all", "cart clear", "delete cart"])) {
       clearCart();
       navigateTo("Cart");
       speak("Your cart is cleared.");
       return;
     }
 
-    if (command.includes("license") || command.includes("certificate") || command.includes("fssai")) {
+    if (includesAny(command, ["license", "certificate", "fssai", "compliance"])) {
       openAccountSection("compliance", "the FSSAI license");
       return;
     }
 
-    if (command.includes("contact admin") || command.includes("support") || command.includes("help desk")) {
+    if (includesAny(command, ["contact admin", "support", "help desk", "customer care", "call admin"])) {
       openAccountSection("contact", "customer support");
       return;
     }
 
-    if (command.includes("address") || command.includes("delivery location")) {
+    if (includesAny(command, ["address", "delivery location", "home location", "my location"])) {
       openAccountSection("addresses", "delivery addresses");
       return;
     }
 
-    if (command.includes("preference") || command.includes("setting") || command.includes("option") || command.includes("configuration")) {
+    if (includesAny(command, ["preference", "setting", "option", "configuration", "my choices"])) {
       openAccountSection("preferences", "preferences");
       return;
     }
 
-    if (command.includes("service")) {
+    if (includesAny(command, ["service", "services", "customer service"])) {
       openAccountSection("services", "customer services");
       return;
     }
 
-    if (command.startsWith("search ") || command.startsWith("find ") || command.startsWith("show ")) {
-      const nextQuery = command.replace(/^(search|find|show)\s+/, "").trim();
+    if (includesAny(command, ["search", "find", "show", "display"])) {
+      const nextQuery = command.replace(/^(search|find|show|display|open)\s+/, "").trim();
       if (nextQuery) {
         setMenuSearch(nextQuery);
         navigateTo("Snacks");
@@ -223,7 +332,7 @@ export function VoiceAssistant({ navigateTo }: VoiceAssistantProps) {
     const coupon = ["FIRST50", "COMBO20", "FREESHIP"].find((nextCoupon) =>
       command.includes(nextCoupon.toLowerCase()),
     );
-    if (coupon || command.includes("free delivery")) {
+    if (coupon || includesAny(command, ["free delivery", "free shipping", "delivery coupon"])) {
       const couponCode = coupon ?? "FREESHIP";
       sendCartIntent("coupon", couponCode);
       navigateTo("Cart");
@@ -231,63 +340,63 @@ export function VoiceAssistant({ navigateTo }: VoiceAssistantProps) {
       return;
     }
 
-    if (command.includes("mild spice") || command.includes("set mild") || command === "mild") {
+    if (includesAny(command, ["mild spice", "set mild", "less spicy", "low spice"]) || command === "mild") {
       sendCartIntent("spice", "Mild");
       navigateTo("Cart");
       speak("Mild spice selected.");
       return;
     }
 
-    if (command.includes("medium spice") || command.includes("set medium")) {
+    if (includesAny(command, ["medium spice", "set medium", "normal spice"])) {
       sendCartIntent("spice", "Medium");
       navigateTo("Cart");
       speak("Medium spice selected.");
       return;
     }
 
-    if (command.includes("spicy") || command.includes("extra spice") || command.includes("set spicy")) {
+    if (includesAny(command, ["spicy", "extra spice", "set spicy", "more spicy", "high spice"])) {
       sendCartIntent("spice", "Spicy");
       navigateTo("Cart");
       speak("Spicy preference selected.");
       return;
     }
 
-    if (command.includes("upi")) {
+    if (includesAny(command, ["upi", "upi payment", "online payment", "phonepe", "google pay", "gpay"])) {
       sendCartIntent("payment", "UPI on delivery");
       navigateTo("Cart");
       speak("UPI on delivery selected.");
       return;
     }
 
-    if (command.includes("cash")) {
+    if (includesAny(command, ["cash", "cash on delivery", "cod"])) {
       sendCartIntent("payment", "Cash on delivery");
       navigateTo("Cart");
       speak("Cash on delivery selected.");
       return;
     }
 
-    if (command.includes("lunch")) {
+    if (includesAny(command, ["lunch", "afternoon"])) {
       sendCartIntent("schedule", "Lunch");
       navigateTo("Cart");
       speak("Lunch schedule selected.");
       return;
     }
 
-    if (command.includes("evening") || command.includes("snack time")) {
+    if (includesAny(command, ["evening", "snack time", "evening snack", "tea time"])) {
       sendCartIntent("schedule", "Evening snack");
       navigateTo("Cart");
       speak("Evening snack schedule selected.");
       return;
     }
 
-    if (command.includes("dinner")) {
+    if (includesAny(command, ["dinner", "night", "tonight"])) {
       sendCartIntent("schedule", "Dinner");
       navigateTo("Cart");
       speak("Dinner schedule selected.");
       return;
     }
 
-    if (command.includes("place order") || command.includes("confirm order") || command.includes("checkout now")) {
+    if (includesAny(command, ["place order", "confirm order", "checkout now", "order now", "order laga do"])) {
       sendCartIntent("placeOrder");
       navigateTo("Cart");
       speak("Trying to place your order. Please check any missing address or phone details.");
@@ -295,17 +404,16 @@ export function VoiceAssistant({ navigateTo }: VoiceAssistantProps) {
     }
 
     const addIntent =
-      command.includes("add") ||
-      command.includes("order") ||
-      command.includes("want") ||
-      command.includes("buy") ||
-      command.includes("get") ||
-      command.includes("cart");
+      includesAny(command, ["add", "order", "want", "buy", "get", "cart", "give", "take", "need", "pack", "parcel"]);
     const mentionedSnacks = findMentionedSnacks(command, snackCatalog).filter(
       (snack) => snack.isAvailable ?? true,
     );
 
-    if (addIntent && mentionedSnacks.length > 0) {
+    const looksLikeFoodOnlyOrder =
+      mentionedSnacks.length > 0 &&
+      !includesAny(command, ["search", "find", "show", "details", "open", "track", "status"]);
+
+    if ((addIntent || looksLikeFoodOnlyOrder) && mentionedSnacks.length > 0) {
       const addedItems: string[] = [];
       mentionedSnacks.forEach((snack) => {
         const quantity = quantityForSnack(command, snack);
@@ -320,50 +428,50 @@ export function VoiceAssistant({ navigateTo }: VoiceAssistantProps) {
     }
 
     const snack = findSnack(command, snackCatalog);
-    if (snack && command.includes("details")) {
+    if (snack && includesAny(command, ["details", "show", "search", "find"])) {
       setMenuSearch(snack.name);
       navigateTo("Snacks");
       speak(`Showing ${snack.name} on the menu.`);
       return;
     }
 
-    if (command.includes("cart") || command.includes("checkout") || command.includes("place order")) {
+    if (includesAny(command, ["cart", "checkout", "place order", "basket"])) {
       navigateTo("Cart");
       speak(totalItems > 0 ? `Opening cart with ${totalItems} items.` : "Opening cart. It is empty right now.");
       return;
     }
 
-    if (command.includes("repeat order") || command.includes("reorder")) {
+    if (includesAny(command, ["repeat order", "reorder", "same order", "previous order"])) {
       navigateTo("Track");
       speak("Opening tracking and past orders. Use Repeat on the order you want again.");
       return;
     }
 
-    if (command.includes("kitchen camera") || command.includes("live kitchen")) {
+    if (includesAny(command, ["kitchen camera", "live kitchen", "camera", "live cooking"])) {
       navigateTo("Track");
       speak("Opening tracking. Kitchen camera appears while an order is preparing.");
       return;
     }
 
-    if (command.includes("track") || command.includes("status") || command.includes("delivery")) {
+    if (includesAny(command, ["track", "status", "delivery", "where is my order", "order location"])) {
       navigateTo("Track");
       speak("Opening delivery tracking.");
       return;
     }
 
-    if (command.includes("account") || command.includes("login") || command.includes("sign in")) {
+    if (includesAny(command, ["account", "login", "sign in", "profile"])) {
       navigateTo("Account");
       speak("Opening your account screen.");
       return;
     }
 
-    if (command.includes("menu") || command.includes("snack") || command.includes("home")) {
+    if (includesAny(command, ["menu", "snack", "home", "food"])) {
       navigateTo("Snacks");
       speak("Opening the snacks menu.");
       return;
     }
 
-    if (command.includes("help") || command.includes("what can you do")) {
+    if (includesAny(command, ["help", "what can you do", "voice help"])) {
       speak("Try add two chicken curry and one bagara rice, apply FIRST50, set spicy, schedule dinner, open addresses, open license, track order, or place order.");
       return;
     }
@@ -421,6 +529,8 @@ export function VoiceAssistant({ navigateTo }: VoiceAssistantProps) {
       continuous: false,
       contextualStrings,
       androidIntentOptions: {
+        EXTRA_ENABLE_BIASING_DEVICE_CONTEXT: true,
+        EXTRA_LANGUAGE_DETECTION_ALLOWED_LANGUAGES: ["en-IN", "hi-IN"],
         EXTRA_LANGUAGE_MODEL: "web_search",
       },
     });
