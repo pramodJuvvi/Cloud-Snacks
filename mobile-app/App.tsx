@@ -23,6 +23,7 @@ import { HomeScreen } from "./src/screens/HomeScreen";
 import { TrackScreen } from "./src/screens/TrackScreen";
 import { theme } from "./src/theme";
 import { VoiceAssistant } from "./src/components/VoiceAssistant";
+import { NotificationFallbackBanner } from "./src/components/NotificationFallbackBanner";
 
 type RootTabParamList = {
   Snacks: undefined;
@@ -117,6 +118,7 @@ function Tabs() {
         </>
       )}
     </Tab.Navigator>
+    {user && !isAdmin ? <NotificationFallbackBanner /> : null}
     {user && !isAdmin ? <VoiceAssistant navigateTo={navigateToCustomerTab} /> : null}
     </>
   );

@@ -376,6 +376,10 @@ export function AdminScreen() {
     .filter((order) => order.status !== "cancelled")
     .reduce((total, order) => total + order.total, 0);
   const issueCount = orders.filter((order) => Boolean(order.issueReport)).length;
+  const feedbackAlerts = orders
+    .filter((order) => Boolean(order.issueReport) || (order.feedbackRating ?? 5) <= 3)
+    .slice(0, 6);
+  const lowRatingCount = orders.filter((order) => (order.feedbackRating ?? 5) <= 3).length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -526,8 +530,45 @@ export function AdminScreen() {
               <MetricTile accent={theme.colors.sky} label="Orders" value={orders.length} />
               <MetricTile accent={theme.colors.leaf} label="Active" value={activeOrders.length} />
               <MetricTile accent={theme.colors.saffron} label="Revenue" value={`Rs ${todayRevenue}`} />
-              <MetricTile accent={theme.colors.tomato} label="Issues" value={issueCount} />
+              <MetricTile accent={theme.colors.tomato} label="Feedback" value={issueCount + lowRatingCount} />
             </View>
+
+            <SectionPanel
+              accent={theme.colors.tomato}
+              icon="chatbubbles-outline"
+              title="Customer Feedback Alerts"
+              subtitle="Low ratings and reported issues that need admin attention."
+            >
+              {feedbackAlerts.length > 0 ? (
+                feedbackAlerts.map((order) => (
+                  <View key={order.id} style={styles.feedbackAlertCard}>
+                    <View style={styles.orderTopRow}>
+                      <Text style={styles.orderTitle}>Order #{order.id}</Text>
+                      <Text style={styles.feedbackAlertBadge}>
+                        {order.issueReport ? "Issue" : "Low rating"}
+                      </Text>
+                    </View>
+                    <Text style={styles.orderItems}>
+                      {order.items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}
+                    </Text>
+                    {order.customerPhone ? (
+                      <Text style={styles.orderItems}>Phone: {order.customerPhone}</Text>
+                    ) : null}
+                    {order.feedbackRating ? (
+                      <Text style={styles.feedbackRatingText}>
+                        Rating: {order.feedbackRating}/5
+                        {order.feedbackNote ? ` - ${order.feedbackNote}` : ""}
+                      </Text>
+                    ) : null}
+                    {order.issueReport ? (
+                      <Text style={styles.issueText}>Issue: {order.issueReport}</Text>
+                    ) : null}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.orderItems}>No low ratings or issue reports right now.</Text>
+              )}
+            </SectionPanel>
 
             <SectionPanel
               accent={theme.colors.saffron}
@@ -1462,6 +1503,30 @@ const styles = StyleSheet.create({
     color: theme.colors.tomato,
     fontSize: 13,
     fontWeight: "800",
+    lineHeight: 19,
+    marginTop: theme.spacing.xs,
+  },
+  feedbackAlertBadge: {
+    backgroundColor: "#fee2e2",
+    borderRadius: theme.radius.sm,
+    color: theme.colors.tomato,
+    fontSize: 12,
+    fontWeight: "900",
+    overflow: "hidden",
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+  },
+  feedbackAlertCard: {
+    backgroundColor: "#fff7ed",
+    borderColor: "#fed7aa",
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    padding: theme.spacing.md,
+  },
+  feedbackRatingText: {
+    color: theme.colors.charcoal,
+    fontSize: 13,
+    fontWeight: "900",
     lineHeight: 19,
     marginTop: theme.spacing.xs,
   },
