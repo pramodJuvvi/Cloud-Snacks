@@ -6,9 +6,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 $cleanUrl = $BackendUrl.TrimEnd("/")
-$home = Invoke-RestMethod -Method Get -Uri $cleanUrl -TimeoutSec 30
+$homeResponse = Invoke-RestMethod -Method Get -Uri $cleanUrl -TimeoutSec 30
 Write-Host "Backend home:"
-$home | ConvertTo-Json
+$homeResponse | ConvertTo-Json
 
 $snacks = Invoke-RestMethod -Method Get -Uri "$cleanUrl/snacks" -TimeoutSec 30
 Write-Host "Snack count: $($snacks.Count)"

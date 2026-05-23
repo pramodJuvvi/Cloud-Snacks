@@ -29,6 +29,12 @@ services:
         value: cloud_snacks_otp
       - key: WHATSAPP_TEMPLATE_LANGUAGE
         value: en_US
+      - key: WHATSAPP_GRAPH_API_VERSION
+        value: v20.0
+      - key: WHATSAPP_INCLUDE_BUTTON_CODE
+        value: "true"
+      - key: WHATSAPP_BUTTON_SUB_TYPE
+        value: url
       - key: SMS_PROVIDER
         value: fast2sms
       - key: FAST2SMS_API_KEY

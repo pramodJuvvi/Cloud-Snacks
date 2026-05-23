@@ -48,6 +48,19 @@ SMS_PROVIDER=fast2sms
 FAST2SMS_API_KEY=your_fast2sms_key
 ```
 
+For official Meta WhatsApp Cloud API instead of a provider webhook, set:
+
+```text
+WHATSAPP_PROVIDER=meta
+WHATSAPP_ACCESS_TOKEN=your_meta_access_token
+WHATSAPP_PHONE_NUMBER_ID=your_meta_phone_number_id
+WHATSAPP_TEMPLATE_NAME=your_approved_authentication_template_name
+WHATSAPP_TEMPLATE_LANGUAGE=en_US
+WHATSAPP_GRAPH_API_VERSION=v20.0
+WHATSAPP_INCLUDE_BUTTON_CODE=true
+WHATSAPP_BUTTON_SUB_TYPE=url
+```
+
 For development without real OTP provider keys, keep:
 
 ```text

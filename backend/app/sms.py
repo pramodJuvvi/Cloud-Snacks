@@ -125,11 +125,34 @@ def send_otp_whatsapp(phone: str, otp: str) -> str:
         phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
         template_name = os.getenv("WHATSAPP_TEMPLATE_NAME", "cloud_snacks_otp").strip()
         template_language = os.getenv("WHATSAPP_TEMPLATE_LANGUAGE", "en_US").strip()
+        graph_api_version = os.getenv("WHATSAPP_GRAPH_API_VERSION", "v20.0").strip()
+        button_sub_type = os.getenv("WHATSAPP_BUTTON_SUB_TYPE", "url").strip()
+        include_button_code = os.getenv("WHATSAPP_INCLUDE_BUTTON_CODE", "true").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
         if not access_token or not phone_number_id:
             raise SmsDeliveryError("WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID is not configured")
 
+        components = [
+            {
+                "type": "body",
+                "parameters": [{"type": "text", "text": otp}],
+            }
+        ]
+        if include_button_code:
+            components.append(
+                {
+                    "type": "button",
+                    "sub_type": button_sub_type,
+                    "index": "0",
+                    "parameters": [{"type": "text", "text": otp}],
+                }
+            )
+
         post_json(
-            f"https://graph.facebook.com/v20.0/{phone_number_id}/messages",
+            f"https://graph.facebook.com/{graph_api_version}/{phone_number_id}/messages",
             {
                 "messaging_product": "whatsapp",
                 "to": normalize_whatsapp_number(phone),
@@ -137,12 +160,7 @@ def send_otp_whatsapp(phone: str, otp: str) -> str:
                 "template": {
                     "name": template_name,
                     "language": {"code": template_language},
-                    "components": [
-                        {
-                            "type": "body",
-                            "parameters": [{"type": "text", "text": otp}],
-                        }
-                    ],
+                    "components": components,
                 },
             },
             {
