@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Notifications from "expo-notifications";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -8,28 +7,10 @@ import { theme } from "../theme";
 const PROMO_MESSAGE =
   "New box alert: Dietician-curated kids, teen, adult, and senior plans are live. Use FIRST50 on your first subscription.";
 
-function hasNotificationPermission(permission: unknown) {
-  const status = permission as { granted?: boolean; status?: string };
-  return status.granted === true || status.status === "granted";
-}
-
 export function NotificationFallbackBanner() {
   const opacity = useRef(new Animated.Value(1)).current;
-  const [shouldShow, setShouldShow] = useState(false);
+  const [shouldShow, setShouldShow] = useState(true);
   const [message, setMessage] = useState(PROMO_MESSAGE);
-
-  const refreshPermission = async () => {
-    try {
-      const permission = await Notifications.getPermissionsAsync();
-      setShouldShow(!hasNotificationPermission(permission));
-    } catch {
-      setShouldShow(true);
-    }
-  };
-
-  useEffect(() => {
-    void refreshPermission();
-  }, []);
 
   useEffect(() => {
     if (!shouldShow) {
@@ -57,20 +38,9 @@ export function NotificationFallbackBanner() {
     return () => animation.stop();
   }, [opacity, shouldShow]);
 
-  const requestPermission = async () => {
-    try {
-      const permission = await Notifications.requestPermissionsAsync();
-      if (hasNotificationPermission(permission)) {
-        setShouldShow(false);
-        setMessage(PROMO_MESSAGE);
-      } else {
-        setShouldShow(true);
-        setMessage("Notifications are off. We will keep showing hot recipes and deals here in the app.");
-      }
-    } catch {
-      setShouldShow(true);
-      setMessage("Notifications are off. We will keep showing hot recipes and deals here in the app.");
-    }
+  const dismissFallback = () => {
+    setShouldShow(false);
+    setMessage(PROMO_MESSAGE);
   };
 
   if (!shouldShow) {
@@ -91,11 +61,11 @@ export function NotificationFallbackBanner() {
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Enable Cloud Snacks notifications"
-          onPress={requestPermission}
+          accessibilityLabel="Dismiss Cloud Snack Box in-app deal alert"
+          onPress={dismissFallback}
           style={({ pressed }) => [styles.enableButton, pressed && styles.pressed]}
         >
-          <Text style={styles.enableText}>Enable</Text>
+          <Text style={styles.enableText}>Got it</Text>
         </Pressable>
       </Animated.View>
     </View>

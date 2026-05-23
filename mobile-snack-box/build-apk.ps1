@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$buildRoot = Join-Path $env:USERPROFILE "cs_mobile_build"
+$buildRoot = Join-Path $env:USERPROFILE "cs_snack_box_build"
 $androidRoot = Join-Path $buildRoot "android"
 $builtApkPath = Join-Path $androidRoot "app\build\outputs\apk\release\app-release.apk"
 $outputApkPath = Join-Path $projectRoot $OutputApkName
