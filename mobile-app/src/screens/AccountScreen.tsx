@@ -43,10 +43,12 @@ export function AccountScreen() {
   const {
     accessToken,
     isLoading,
+    rememberedPhone,
     resetPinWithOtp,
     signInWithPin,
     signOut,
     signUpWithOtp,
+    useAnotherPhone,
     user,
   } = useAuth();
   const { accountSection, setAccountSection } = useVoiceCommand();
@@ -72,8 +74,33 @@ export function AccountScreen() {
   const [orderUpdates, setOrderUpdates] = useState(true);
   const [customerMenuMessage, setCustomerMenuMessage] = useState("");
 
+  const selectAuthMode = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setAuthMessage("");
+    setOtp("");
+    setGeneratedOtp("");
+    setPin("");
+    if ((nextMode === "login" || nextMode === "forgot") && rememberedPhone) {
+      setPhone("");
+    }
+  };
+
+  const authPhone = (mode === "login" || mode === "forgot") && rememberedPhone
+    ? rememberedPhone
+    : phone.trim();
+  const shouldShowPhoneInput = mode === "register" || !rememberedPhone;
+
+  const switchPhoneNumber = async () => {
+    await useAnotherPhone();
+    setPhone("");
+    setOtp("");
+    setGeneratedOtp("");
+    setPin("");
+    setAuthMessage("Enter your mobile number to continue.");
+  };
+
   const requestAuthOtp = async () => {
-    if (phone.trim().length < 7) {
+    if (authPhone.length < 7) {
       setAuthMessage("Enter your mobile number first.");
       return;
     }
@@ -84,10 +111,12 @@ export function AccountScreen() {
 
     try {
       const response = await requestOtp({
-        phone,
+        phone: authPhone,
         purpose: mode === "forgot" ? "reset_pin" : "register",
       });
-      setPhone(response.phone);
+      if (shouldShowPhoneInput) {
+        setPhone(response.phone);
+      }
       if (response.devOtp && SHOW_DEV_OTP) {
         setOtp(response.devOtp);
         setGeneratedOtp(response.devOtp);
@@ -114,7 +143,7 @@ export function AccountScreen() {
   };
 
   const submitAuth = async () => {
-    if (phone.trim().length < 7) {
+    if (authPhone.length < 7) {
       setAuthMessage("Enter a valid mobile number.");
       return;
     }
@@ -136,11 +165,11 @@ export function AccountScreen() {
 
     try {
       if (mode === "register") {
-        await signUpWithOtp(name, phone, otp, pin);
+        await signUpWithOtp(name, authPhone, otp, pin);
       } else if (mode === "forgot") {
-        await resetPinWithOtp(phone, otp, pin);
+        await resetPinWithOtp(authPhone, otp, pin);
       } else {
-        await signInWithPin(phone, pin);
+        await signInWithPin(authPhone, pin);
       }
 
       setName("");
@@ -373,6 +402,12 @@ export function AccountScreen() {
   useEffect(() => {
     void loadCustomerSettings();
   }, []);
+
+  useEffect(() => {
+    if (!user && rememberedPhone && !phone) {
+      setPhone(rememberedPhone);
+    }
+  }, [phone, rememberedPhone, user]);
 
   useEffect(() => {
     void loadOrders();
@@ -720,13 +755,7 @@ export function AccountScreen() {
                 <Pressable
                   accessibilityRole="button"
                   key={nextMode}
-                  onPress={() => {
-                    setMode(nextMode);
-                    setAuthMessage("");
-                    setOtp("");
-                    setGeneratedOtp("");
-                    setPin("");
-                  }}
+                  onPress={() => selectAuthMode(nextMode)}
                   style={[styles.segment, mode === nextMode && styles.activeSegment]}
                 >
                   <Text style={[styles.segmentText, mode === nextMode && styles.activeSegmentText]}>
@@ -747,14 +776,31 @@ export function AccountScreen() {
               />
             ) : null}
 
-            <TextInput
-              keyboardType="phone-pad"
-              onChangeText={setPhone}
-              placeholder="Mobile number"
-              placeholderTextColor={theme.colors.muted}
-              style={styles.input}
-              value={phone}
-            />
+            {shouldShowPhoneInput ? (
+              <TextInput
+                keyboardType="phone-pad"
+                onChangeText={setPhone}
+                placeholder="Mobile number"
+                placeholderTextColor={theme.colors.muted}
+                style={styles.input}
+                value={phone}
+              />
+            ) : (
+              <View style={styles.rememberedPhonePanel}>
+                <View style={styles.rememberedPhoneCopy}>
+                  <Text style={styles.rememberedPhoneLabel}>Mobile number</Text>
+                  <Text style={styles.rememberedPhoneValue}>{rememberedPhone}</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Use another mobile number"
+                  onPress={switchPhoneNumber}
+                  style={({ pressed }) => [styles.changeNumberButton, pressed && styles.pressed]}
+                >
+                  <Text style={styles.changeNumberText}>Change</Text>
+                </Pressable>
+              </View>
+            )}
 
             {mode !== "login" ? (
               <>
@@ -1095,6 +1141,43 @@ const styles = StyleSheet.create({
     fontSize: 15,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
+  },
+  changeNumberButton: {
+    backgroundColor: theme.colors.white,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  changeNumberText: {
+    color: theme.colors.charcoal,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  rememberedPhoneCopy: {
+    flex: 1,
+  },
+  rememberedPhoneLabel: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  rememberedPhonePanel: {
+    alignItems: "center",
+    backgroundColor: theme.colors.cloud,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+  },
+  rememberedPhoneValue: {
+    color: theme.colors.charcoal,
+    fontSize: 16,
+    fontWeight: "900",
+    marginTop: 2,
   },
   orderCard: {
     backgroundColor: theme.colors.cloud,

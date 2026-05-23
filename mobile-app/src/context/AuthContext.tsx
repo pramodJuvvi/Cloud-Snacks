@@ -13,10 +13,12 @@ import {
 } from "../api/client";
 
 const AUTH_TOKEN_KEY = "cloudsnacks.authToken";
+const REMEMBERED_PHONE_KEY = "cloudsnacks.rememberedPhone";
 
 type AuthContextValue = {
   user: User | null;
   accessToken: string | null;
+  rememberedPhone: string | null;
   isLoading: boolean;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
@@ -24,6 +26,7 @@ type AuthContextValue = {
   signInWithPin: (phone: string, pin: string) => Promise<void>;
   signUpWithOtp: (name: string, phone: string, otp: string, pin: string) => Promise<void>;
   resetPinWithOtp: (phone: string, otp: string, pin: string) => Promise<void>;
+  useAnotherPhone: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -50,12 +53,24 @@ function isAdminAccount(user: User | null) {
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [rememberedPhone, setRememberedPhone] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const applySession = async (session: AuthSession) => {
+  const rememberPhone = async (phone?: string | null) => {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return;
+    }
+
+    setRememberedPhone(normalizedPhone);
+    await AsyncStorage.setItem(REMEMBERED_PHONE_KEY, normalizedPhone);
+  };
+
+  const applySession = async (session: AuthSession, fallbackPhone?: string) => {
     setAccessToken(session.accessToken);
     setUser(session.user);
     await AsyncStorage.setItem(AUTH_TOKEN_KEY, session.accessToken);
+    await rememberPhone(session.user.phone ?? fallbackPhone);
   };
 
   const signIn = async (email: string, password: string) => {
@@ -70,20 +85,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const signInWithPin = async (phone: string, pin: string) => {
     const session = await loginWithPin({ phone, pin });
-    await applySession(session);
+    await applySession(session, phone);
   };
 
   const signUpWithOtp = async (name: string, phone: string, otp: string, pin: string) => {
     const session = await registerPhoneUser({ name, phone, otp, pin });
-    await applySession(session);
+    await applySession(session, phone);
   };
 
   const resetPinWithOtp = async (phone: string, otp: string, pin: string) => {
     const session = await resetPin({ phone, otp, pin });
-    await applySession(session);
+    await applySession(session, phone);
+  };
+
+  const useAnotherPhone = async () => {
+    setRememberedPhone(null);
+    await AsyncStorage.removeItem(REMEMBERED_PHONE_KEY);
   };
 
   const signOut = async () => {
+    await rememberPhone(user?.phone);
     setAccessToken(null);
     setUser(null);
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
@@ -92,12 +113,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     async function restoreSession() {
       try {
-        const savedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+        const [savedToken, savedPhone] = await Promise.all([
+          AsyncStorage.getItem(AUTH_TOKEN_KEY),
+          AsyncStorage.getItem(REMEMBERED_PHONE_KEY),
+        ]);
+
+        if (savedPhone) {
+          setRememberedPhone(savedPhone);
+        }
 
         if (savedToken) {
           const savedUser = await getCurrentUser(savedToken);
           setAccessToken(savedToken);
           setUser(savedUser);
+          await rememberPhone(savedUser.phone ?? savedPhone);
         }
       } catch {
         await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
@@ -113,6 +142,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       user,
       accessToken,
+      rememberedPhone,
       isLoading,
       isAdmin: isAdminAccount(user),
       signIn,
@@ -120,9 +150,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signInWithPin,
       signUpWithOtp,
       resetPinWithOtp,
+      useAnotherPhone,
       signOut,
     }),
-    [accessToken, isLoading, user],
+    [accessToken, isLoading, rememberedPhone, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
