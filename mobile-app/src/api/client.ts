@@ -24,21 +24,40 @@ async function request(url: string, options: RequestInit = {}) {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new ApiError(`Request timed out for ${url}`);
+      throw new ApiError("The service is taking longer than expected. Please try again.");
     }
 
-    throw new ApiError(`Network request failed for ${url}`);
+    throw new ApiError("We could not connect to Cloud Snacks. Please check your internet and try again.");
   } finally {
     clearTimeout(timeout);
   }
 }
 
+function friendlyStatusMessage(status: number) {
+  if (status === 400) {
+    return "Please check the details and try again.";
+  }
+  if (status === 401 || status === 403) {
+    return "Please sign in again to continue.";
+  }
+  if (status === 404) {
+    return "We could not find that item. Please refresh and try again.";
+  }
+  if (status === 409) {
+    return "This request conflicts with existing information. Please review and try again.";
+  }
+  if (status >= 500) {
+    return "Cloud Snacks is temporarily unavailable. Please try again shortly.";
+  }
+  return "Something went wrong. Please try again.";
+}
+
 async function parseError(response: Response): Promise<ApiError> {
   try {
     const data = (await response.json()) as { detail?: string };
-    return new ApiError(data.detail ?? `Backend responded with ${response.status}`, response.status);
+    return new ApiError(data.detail ?? friendlyStatusMessage(response.status), response.status);
   } catch {
-    return new ApiError(`Backend responded with ${response.status}`, response.status);
+    return new ApiError(friendlyStatusMessage(response.status), response.status);
   }
 }
 

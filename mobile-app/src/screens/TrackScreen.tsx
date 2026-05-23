@@ -114,7 +114,11 @@ export function TrackScreen() {
       setOrders(nextOrders);
       setMessage(nextOrders.length === 0 ? "No orders to track yet." : "");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not load tracking.");
+      setMessage(
+        error instanceof ApiError
+          ? `Could not load tracking. ${error.message}`
+          : "Could not load tracking. Please try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +169,7 @@ export function TrackScreen() {
       setMessage(
         error instanceof ApiError
           ? `Could not repeat order. ${error.message}`
-          : "Could not repeat order. Check that FastAPI is running.",
+          : "Could not repeat order. Please try again.",
       );
     } finally {
       setRepeatingOrderId(null);
@@ -182,7 +186,11 @@ export function TrackScreen() {
       const cameraUrl = await getKitchenCameraUrl(order.id, accessToken);
       await Linking.openURL(cameraUrl);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not open kitchen camera link.");
+      setMessage(
+        error instanceof ApiError
+          ? `Could not open kitchen camera. ${error.message}`
+          : "Could not open kitchen camera. Please try again.",
+      );
     }
   };
 
@@ -243,7 +251,11 @@ export function TrackScreen() {
       updateOrder(updatedOrder);
       setMessage(`Order #${order.id} cancelled.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not cancel order.");
+      setMessage(
+        error instanceof ApiError
+          ? `Could not cancel order. ${error.message}`
+          : "Could not cancel order. Please try again.",
+      );
     }
   };
 
@@ -262,7 +274,11 @@ export function TrackScreen() {
       updateOrder(updatedOrder);
       setMessage(`Thanks for rating order #${order.id}.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save rating.");
+      setMessage(
+        error instanceof ApiError
+          ? `Could not save rating. ${error.message}`
+          : "Could not save rating. Please try again.",
+      );
     }
   };
 
@@ -281,7 +297,11 @@ export function TrackScreen() {
       updateOrder(updatedOrder);
       setMessage(`Issue reported for order #${order.id}.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not report issue.");
+      setMessage(
+        error instanceof ApiError
+          ? `Could not report issue. ${error.message}`
+          : "Could not report issue. Please try again.",
+      );
     }
   };
 

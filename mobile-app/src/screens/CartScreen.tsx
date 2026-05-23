@@ -120,7 +120,7 @@ export function CartScreen() {
       .map((item) => ({ snackId: Number(item.snack.id), quantity: item.quantity }));
 
     if (apiItems.length !== items.length) {
-      setOrderMessage("Refresh snacks from the backend before placing this order.");
+      setOrderMessage("Refresh the menu before placing this order.");
       return;
     }
 
@@ -165,7 +165,7 @@ export function CartScreen() {
       setOrderMessage(
         error instanceof ApiError
           ? `Could not place order. ${error.message}`
-          : "Could not place order. Check that FastAPI is running.",
+          : "Could not place order. Please try again.",
       );
     } finally {
       setIsSubmitting(false);

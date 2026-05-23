@@ -1,6 +1,7 @@
 param(
     [string]$BackendUrl = "http://192.168.1.8:8000",
-    [string]$OutputApkName = "cloudsnacks-test.apk"
+    [string]$OutputApkName = "cloudsnacks-test.apk",
+    [string]$ShowDevOtp = "false"
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +21,7 @@ if (-not $env:ANDROID_HOME -and -not $env:ANDROID_SDK_ROOT) {
 }
 
 $env:EXPO_PUBLIC_API_URL = $BackendUrl
+$env:EXPO_PUBLIC_SHOW_DEV_OTP = $ShowDevOtp
 $env:NODE_ENV = "production"
 
 $excludedDirs = @(

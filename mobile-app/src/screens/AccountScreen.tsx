@@ -15,11 +15,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-  API_URL,
   ApiError,
   KITCHEN_ADDRESS,
   createOrder,
-  getBackendStatus,
   getKitchenCameraUrl,
   getMyOrders,
   OrderHistoryItem,
@@ -32,7 +30,6 @@ import { useAuth } from "../context/AuthContext";
 import { useVoiceCommand, type AccountMenuSection } from "../context/VoiceCommandContext";
 import { theme } from "../theme";
 
-type StatusState = "idle" | "loading" | "online" | "offline";
 type AuthMode = "login" | "register" | "forgot";
 
 const SAVED_ADDRESSES_KEY = "cloudsnacks.savedAddresses";
@@ -53,8 +50,6 @@ export function AccountScreen() {
     user,
   } = useAuth();
   const { accountSection, setAccountSection } = useVoiceCommand();
-  const [status, setStatus] = useState<StatusState>("idle");
-  const [message, setMessage] = useState("Backend not checked yet");
   const [mode, setMode] = useState<AuthMode>("login");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -76,23 +71,6 @@ export function AccountScreen() {
   const [contactlessDelivery, setContactlessDelivery] = useState(false);
   const [orderUpdates, setOrderUpdates] = useState(true);
   const [customerMenuMessage, setCustomerMenuMessage] = useState("");
-
-  const checkBackend = async () => {
-    setStatus("loading");
-
-    try {
-      const backendMessage = await getBackendStatus();
-      setStatus("online");
-      setMessage(backendMessage);
-    } catch (error) {
-      setStatus("offline");
-      setMessage(
-        error instanceof Error
-          ? `Cannot reach ${API_URL}. ${error.message}`
-          : `Cannot reach ${API_URL}`,
-      );
-    }
-  };
 
   const requestAuthOtp = async () => {
     if (phone.trim().length < 7) {
@@ -118,19 +96,17 @@ export function AccountScreen() {
         setGeneratedOtp("");
       }
       setAuthMessage(
-        response.deliveryChannel === "dev" && !SHOW_DEV_OTP
-          ? "OTP service is in development fallback mode. Configure WhatsApp or SMS provider keys on the backend to send a real OTP."
+        response.deliveryChannel === "dev"
+          ? SHOW_DEV_OTP
+            ? "Testing OTP ready. Enter the code shown below."
+            : "OTP is enabled in testing mode. Please use the test code shared by Cloud Snacks."
           : response.message,
       );
     } catch (error) {
-      const errorMessage = error instanceof ApiError ? error.message : "Check your network/backend.";
-      const backendOffline =
-        errorMessage.toLowerCase().includes("timed out") ||
-        errorMessage.toLowerCase().includes("network request failed");
       setAuthMessage(
-        backendOffline
-          ? `Could not generate OTP. Backend is not reachable at ${API_URL}. Start FastAPI on the laptop and keep phone on the same Wi-Fi.`
-          : `Could not generate OTP. ${errorMessage}`,
+        error instanceof ApiError
+          ? `Could not send OTP. ${error.message}`
+          : "Could not send OTP. Please try again.",
       );
     } finally {
       setIsRequestingOtp(false);
@@ -173,7 +149,7 @@ export function AccountScreen() {
       setPin("");
       setAuthMessage("");
     } catch (error) {
-      const errorMessage = error instanceof ApiError ? error.message : "Check your network/backend.";
+      const errorMessage = error instanceof ApiError ? error.message : "Please try again.";
       setAuthMessage(
         mode === "register"
           ? `Could not create account. ${errorMessage}`
@@ -202,9 +178,9 @@ export function AccountScreen() {
       setOrdersMessage(nextOrders.length === 0 ? "No orders yet." : "");
     } catch (error) {
       setOrdersMessage(
-        error instanceof Error
+        error instanceof ApiError
           ? `Could not load orders. ${error.message}`
-          : "Could not load orders. Check that FastAPI is running.",
+          : "Could not load orders. Please try again.",
       );
     } finally {
       setIsLoadingOrders(false);
@@ -252,7 +228,7 @@ export function AccountScreen() {
       setOrdersMessage(
         error instanceof ApiError
           ? `Could not repeat order. ${error.message}`
-          : "Could not repeat order. Check that FastAPI is running.",
+          : "Could not repeat order. Please try again.",
       );
     } finally {
       setRepeatingOrderId(null);
@@ -286,7 +262,11 @@ export function AccountScreen() {
       const cameraUrl = await getKitchenCameraUrl(order.id, accessToken);
       await Linking.openURL(cameraUrl);
     } catch (error) {
-      setOrdersMessage(error instanceof Error ? error.message : "Could not open kitchen camera.");
+      setOrdersMessage(
+        error instanceof ApiError
+          ? `Could not open kitchen camera. ${error.message}`
+          : "Could not open kitchen camera. Please try again.",
+      );
     }
   };
 
@@ -391,7 +371,6 @@ export function AccountScreen() {
   };
 
   useEffect(() => {
-    void checkBackend();
     void loadCustomerSettings();
   }, []);
 
@@ -407,12 +386,6 @@ export function AccountScreen() {
     }
   }, [accountSection, setAccountSection]);
 
-  const statusColor =
-    status === "online"
-      ? theme.colors.leaf
-      : status === "offline"
-        ? theme.colors.tomato
-        : theme.colors.saffron;
   const profileDetail = isLoading
     ? "Restoring session"
     : user?.phone || user?.email || "Register or log in below.";
@@ -673,12 +646,7 @@ export function AccountScreen() {
               ? "Repeat orders, preferences, support, and saved delivery details."
               : "Register with your mobile number and OTP, then use your PIN for future logins."
           }
-        >
-          <View style={styles.apiBadge}>
-            <Ionicons name="server-outline" size={14} color={theme.colors.charcoal} />
-            <Text style={styles.apiUrl}>{API_URL}</Text>
-          </View>
-        </AppHeader>
+        />
 
         <View style={styles.profilePanel}>
           <View style={styles.avatar}>
@@ -808,7 +776,7 @@ export function AccountScreen() {
                 </Pressable>
                 {generatedOtp ? (
                   <View style={styles.otpPanel}>
-                    <Text style={styles.otpLabel}>Development OTP</Text>
+                    <Text style={styles.otpLabel}>Testing OTP</Text>
                     <Text style={styles.otpValue}>{generatedOtp}</Text>
                   </View>
                 ) : null}
@@ -966,29 +934,6 @@ export function AccountScreen() {
           </SectionPanel>
         ) : null}
 
-        <SectionPanel
-          accent={statusColor}
-          icon="server-outline"
-          title="Backend"
-          subtitle="This confirms whether your phone can reach the laptop server."
-        >
-          <View style={styles.statusHeader}>
-            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={styles.statusTitle}>Backend</Text>
-          </View>
-          <Text style={styles.statusMessage}>{message}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Check backend status"
-            onPress={checkBackend}
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="refresh" size={18} color={theme.colors.charcoal} />
-            <Text style={styles.secondaryButtonText}>
-              {status === "loading" ? "Checking" : "Check Status"}
-            </Text>
-          </Pressable>
-        </SectionPanel>
       </ScrollView>
     </SafeAreaView>
   );

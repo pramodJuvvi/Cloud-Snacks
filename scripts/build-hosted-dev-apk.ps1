@@ -2,7 +2,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$BackendUrl,
 
-    [string]$OutputApkName = "cloudsnacks-hosted-dev.apk"
+    [string]$OutputApkName = "cloudsnacks-hosted-dev.apk",
+
+    [string]$ShowDevOtp = "true"
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,7 +18,7 @@ $mobileRoot = Join-Path $repoRoot "mobile-app"
 
 Push-Location $mobileRoot
 try {
-    powershell -ExecutionPolicy Bypass -File .\build-apk.ps1 -BackendUrl $BackendUrl -OutputApkName $OutputApkName
+    powershell -ExecutionPolicy Bypass -File .\build-apk.ps1 -BackendUrl $BackendUrl -OutputApkName $OutputApkName -ShowDevOtp $ShowDevOtp
 }
 finally {
     Pop-Location
